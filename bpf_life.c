@@ -87,12 +87,12 @@ int cell_math(unsigned int offset, int add)
 		ydown = WIDTH;
 
 
-	bpf_printk("before cell_ptr[(%d)] -> %d\n", offset, cell_ptr[offset&MASK]);
+	// bpf_printk("before cell_ptr[(%d)] -> %d\n", offset, cell_ptr[offset&MASK]);
 	if (add > 0)
 		cell_ptr[(offset & MASK)] |= 0x01;
 	else
 		cell_ptr[(offset & MASK)] &= ~0x01;
-	bpf_printk("after cell_ptr[(%d)] -> %d\n", offset, cell_ptr[offset&MASK]);
+	// bpf_printk("after cell_ptr[(%d)] -> %d\n", offset, cell_ptr[offset&MASK]);
 
 	cell_ptr[(offset + yup + xleft) & MASK] += add;
 	cell_ptr[(offset + yup) & MASK] += add;
@@ -175,7 +175,7 @@ int next_generation_x(unsigned int cell_off)
 
 	cell_ptr = (unsigned char *)m->temp;
 
-	bpf_printk("generate: x: %d -> %d\n", cell_off, cell_off % WIDTH);
+	// bpf_printk("generate: x: %d -> %d\n", cell_off, cell_off % WIDTH);
 	for (x = 0; x < WIDTH; x++) {
 		if (cell_off > MAX_CELL_MAP_SIZE) {
 			bpf_printk("cell_ff > MAX_CELL continue; %d\n", 0);
@@ -188,15 +188,15 @@ int next_generation_x(unsigned int cell_off)
 		}
 
 		count = cell_ptr[cell_off] >> 1; // # of neighboring on-cells
-		bpf_printk("cellptr[%d] = %d\n", cell_off, count);
+		// bpf_printk("cellptr[%d] = %d\n", cell_off, count);
 		if (cell_ptr[cell_off] & 0x01) {
 			if ((count != 2) && (count != 3)){
-				bpf_printk("clear cell_off %d\n", cell_off);
+				// bpf_printk("clear cell_off %d\n", cell_off);
 				clear_cell(cell_off);
 			}
 		} else {
 			if (count == 3) {
-				bpf_printk("set_cell %d\n", cell_off);
+				// bpf_printk("set_cell %d\n", cell_off);
 				set_cell(cell_off);
 			}
 		}
@@ -338,6 +338,10 @@ int bpf_life(struct __sk_buff *skb)
 	struct tcphdr tcp;
 	unsigned int tcp_off;
 
+	// Only run once
+	if (started)
+		return 1;
+
 	if (bpf_skb_load_bytes(skb, 0, &ip, sizeof(struct iphdr)) < 0)
 		return 1;
 
@@ -347,17 +351,17 @@ int bpf_life(struct __sk_buff *skb)
 	if (ip.protocol != IPPROTO_TCP)
 		return 1;
 
+	// IP headers can vary in length so this finds the start of the TCP header
 	tcp_off = ip.ihl;
 	tcp_off &= 0x0f;
 	tcp_off *= 4;
 
 	if (bpf_skb_load_bytes(skb, tcp_off, &tcp, sizeof(struct tcphdr)) < 0)
 		return 1;
-	
-	if (tcp.dest != 1234)
-		return 1;
 
-	if (started)
+	// Kick off Game of Life by sending a TCP packet on port 0x71fe
+	// for example, run: nc 127.0.0.1 65137
+	if (tcp.source != 0x71fe)
 		return 1;
 
 	bpf_printk("Start life %d\n", 0);
@@ -366,5 +370,5 @@ int bpf_life(struct __sk_buff *skb)
 	send_update();
 	bpf_printk("Start Game %d\n", 0);
 	game();
-	return 0;
+	return 0; 
 }

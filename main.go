@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go life bpf_life.c -- -I../headers
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go life bpf_life.c
 
 type MsgLifeEventPart struct {
 	Cells         [2048]uint8
