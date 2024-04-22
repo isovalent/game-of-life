@@ -20,29 +20,12 @@ import (
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go life bpf_life.c
 
-type MsgLifeEventPart struct {
-	Cells         [2048]uint8
-	Part          uint32
-	Width         uint32
-	Height        uint32
-	LengthInBytes uint32
-}
-
 type MsgLifeEvent struct {
-	Cells         []uint8
+	Cells         [4096]uint8
+	Generation    uint32
 	Width         uint32
 	Height        uint32
 	LengthInBytes uint32
-}
-
-func handleLife(r *bytes.Reader) (error) {
-	m := MsgLifeEvent{}
-	err := binary.Read(r, binary.LittleEndian, &m)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func printCells(e *MsgLifeEvent) {
@@ -64,71 +47,39 @@ func printCells(e *MsgLifeEvent) {
 		}
 		fmt.Printf("\033[E")
 	}
+
+	fmt.Printf("Life event generation %d received: %d x %d\n", e.Generation, e.Width, e.Height)
 }
 
 func readLoop(rd *ringbuf.Reader) {
 	// With ringbuf up read forever until errors
-	var eventPart1 MsgLifeEventPart
-	var eventPart2 MsgLifeEventPart
 	var event MsgLifeEvent
-	var last MsgLifeEvent
 
 	for {
 		record, err := rd.Read()
 		if err != nil {
 			if errors.Is(err, ringbuf.ErrClosed) {
-				fmt.Printf("received signal, exiting..\n")
+				log.Println("received signal, exiting...")
 				return
 			}
-			fmt.Printf("reading from reader: %s\n", err)
+			log.Printf("reading from reader: %s\n", err)
 			continue
 		}
-		err = binary.Read(bytes.NewBuffer(record.RawSample), binary.NativeEndian, &eventPart1)
+		err = binary.Read(bytes.NewBuffer(record.RawSample), binary.NativeEndian, &event)
 		if err != nil {
-			fmt.Printf("parsing perfring error1\n")
+			log.Printf("reading life event error\n")
 			continue
 		}
 
-		record, err = rd.Read()
-		if err != nil {
-			if errors.Is(err, ringbuf.ErrClosed) {
-				fmt.Printf("received signal, exiting..\n")
-				return
-			}
-			fmt.Printf("reading from reader: %s\n", err)
-			continue
-		}
-		err = binary.Read(bytes.NewBuffer(record.RawSample), binary.NativeEndian, &eventPart2)
-		if err != nil {
-			fmt.Printf("parsing perfring error2\n")
-			continue
-		}
-
-		event.Width = eventPart2.Width
-		event.Height = eventPart2.Height
-		event.LengthInBytes = eventPart2.LengthInBytes
-
-		event.Cells = nil
-		event.Cells = append(event.Cells, eventPart1.Cells[:]...)
-		event.Cells = append(event.Cells, eventPart2.Cells[:]...)
-
-		/*
-		for j := uint32(0); j < last.Width * last.Height; j++ {
-			if event.Cells[j] != last.Cells[j] {
-				fmt.Printf("Change @ %d: %d -> %d\n", j, event.Cells[j], last.Cells[j]);
-			}
-		}
-		*/
 		printCells(&event)
-		last = event;
-		fmt.Printf("Life Record received: %d x %d\n", last.Width, last.Height)
 	}
 }
 
 func main() {
 	// Allow the current process to lock memory for eBPF resources.
 	if err := rlimit.RemoveMemlock(); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		log.Fatal("Are you running as root?")
 	}
 
 	// Load pre-compiled programs and maps into the kernel.
@@ -155,23 +106,21 @@ func main() {
 	}
 	defer l.Close()
 
-	log.Println("Waiting for events..")
-
 	// Subscribe to signals for terminating the program.
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 		
 	rd, err := ringbuf.NewReader(objs.LifeRingbuf)
 	if err != nil {
-		fmt.Printf("new ringbuf reader failed: %w", err)
-		return
+		log.Fatalf("new ringbuf reader failed: %w", err)
 	}
+
+	log.Println("Waiting for life events..")
 
 	// Close the reader when the process receives a signal, which will exit
 	// the read loop.
 	go func() {
 		<-stopper
-
 		if err := rd.Close(); err != nil {
 			log.Fatalf("closing ringbuf reader: %s", err)
 		}

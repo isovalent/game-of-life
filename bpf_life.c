@@ -24,11 +24,12 @@ struct {
 
 #define CLOCK_MONOTONIC   1
 #define MAX_CELL_MAP_SIZE 4096 
-#define SAMPLE_CELL_SIZE 2048
+// #define SAMPLE_CELL_SIZE 2048
+#define SAMPLE_CELL_SIZE 4096
 
 struct cell_sample {
 	char cells[SAMPLE_CELL_SIZE];
-	unsigned int part;
+	unsigned int generation;
 	unsigned int width;
 	unsigned int height;
 	unsigned int length_in_bytes;
@@ -141,7 +142,7 @@ int random_init(void)
 	return 0;
 }
 
-int cellmap(void)
+int init_cellmap(void)
 {
 	struct cellmap *m;
 	int h = HEIGHT;
@@ -242,11 +243,13 @@ struct {
 	__uint(max_entries, 4096*4);
 } life_ringbuf SEC(".maps");
 
+unsigned int game_round = 0;
+
 __attribute__((noinline))
 int send_update(void)
 {
-	struct cell_sample *sample1, *sample2;
-	struct cellmap *m;
+	struct cell_sample *sample;
+	struct cellmap *m, *r;
 	long flags = 0;
 	int key = 0;
 
@@ -254,40 +257,22 @@ int send_update(void)
 	if (!m)
 		return -1;
 
-	sample1 = (struct cell_sample *)bpf_ringbuf_reserve(&life_ringbuf, sizeof(*sample1), 0);
-	if (!sample1) {
-		bpf_printk("sample1 failed %d\n", 0);
+	sample = (struct cell_sample *)bpf_ringbuf_reserve(&life_ringbuf, sizeof(*sample), 0);
+	if (!sample) {
+		bpf_printk("failed reserve ringbuf\n", 0);
 		return 0;
 	}
 
 	for (int i = 0; i < m->length_in_bytes && i < SAMPLE_CELL_SIZE; i++) {
-		sample1->cells[i] = m->cells[i];
+		sample->cells[i] = m->cells[i];
 	}
-	sample1->width = m->width;
-	sample1->height = m->height;
-	sample1->length_in_bytes = m->length_in_bytes;
-	bpf_ringbuf_submit(sample1, flags);
-
-	sample2 = (struct cell_sample *)bpf_ringbuf_reserve(&life_ringbuf, sizeof(*sample2), 0);
-	if (!sample2) {
-		bpf_printk("sample2 failed %d\n", 0);
-		return 0;
-	}
-
-	for (int i = 0; i < m->length_in_bytes && i < SAMPLE_CELL_SIZE; i++) {
-		sample2->cells[i] = m->cells[i+SAMPLE_CELL_SIZE];
-	}
-	sample2->width = m->width;
-	sample2->height = m->height;
-	sample2->length_in_bytes = m->length_in_bytes;
-
-	bpf_printk("sample send %d\n", 0);
-	bpf_ringbuf_submit(sample2, flags);
-
+	sample->generation = game_round;
+	sample->width = m->width;
+	sample->height = m->height;
+	sample->length_in_bytes = m->length_in_bytes;
+	bpf_ringbuf_submit(sample, flags);
 	return 0;
 }
-
-int game_round = 0;
 
 static int do_game(void *map, int *key, struct bpf_timer *timer)
 {
@@ -366,7 +351,7 @@ int bpf_life(struct __sk_buff *skb)
 
 	bpf_printk("Start life %d\n", 0);
 	started = true;
-	cellmap();
+	init_cellmap();
 	send_update();
 	bpf_printk("Start Game %d\n", 0);
 	game();
