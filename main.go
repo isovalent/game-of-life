@@ -95,7 +95,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Link the count_egress_packets program to the cgroup.
+	// Link the bpf_life program to the cgroup.
 	l, err := link.AttachCgroup(link.CgroupOptions{
 		Path:    cgroupPath,
 		Attach:  ebpf.AttachCGroupInetEgress,
