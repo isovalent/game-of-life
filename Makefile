@@ -6,7 +6,7 @@ BPF_OBJ = ${TARGET}_bpfel.o
 
 USER_GO = main.go
 
-$(TARGET): $(USER_GO) $(BPF_OBJ) vmlinux.h
+$(TARGET): vmlinux.h $(USER_GO) $(BPF_OBJ) 
 	go build 
 
 $(BPF_OBJ): $(BPF_C)
