@@ -6,6 +6,11 @@ talk about the evolution of the complexities that eBPF can handle.
 * [Slides](https://speakerdeck.com/lizrice/ebpfs-abilities-and-limitations-the-truth)
 * [Video](https://www.youtube.com/watch?v=tClsqnZMN6I)
 
+## Prerequisites
+
+You will need to run this on a Linux (virtual) machine. It was tested on Ubuntu 22.04 with 5.15.0-107-generic kernel. 
+The `lima.yaml` file includes apt-get commands for installing the build pre-requisites.
+
 ## Building and running this demo
 
 * Build by running `make`

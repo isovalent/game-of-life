@@ -11,6 +11,14 @@ int _version __attribute__((section(("version")), used)) =
 	VMLINUX_KERNEL_VERSION;
 #endif
 
+// Fix compilation error "field has incomplete type 'struct bpf_timer'""
+// For some reason vmlinux.h does not have the definition of `struct bpf_timer` 
+// even though it is present in /usr/src/linux-headers-5.15.0-107/include/uapi/linux/bpf.h 
+struct bpf_timer {
+	__u64 :64;
+	__u64 :64;
+} __attribute__((aligned(8)));
+
 struct elem {
 	struct bpf_timer t;
 };

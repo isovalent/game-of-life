@@ -1,0 +1,21 @@
+images:
+- location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+  arch: "x86_64"
+- location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
+
+cpus: 4
+memory: "10GiB"
+
+mounts:
+- location: "~"
+  writable: true
+- location: "/tmp/lima"
+  writable: true
+provision:
+- mode: system
+  script: |
+    apt-get update
+    apt-get install -y golang-1.21 make llvm clang 
+    apt-get install -y libbpf-dev linux-tools-common linux-tools-$(uname -r) 
+    ln -s /usr/lib/go-1.21/bin/go /usr/bin/go

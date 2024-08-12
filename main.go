@@ -31,13 +31,13 @@ type MsgLifeEvent struct {
 func printCells(e *MsgLifeEvent) {
 	fmt.Printf("\033[H")
 	for x := uint32(0); x < e.Width; x++ {
-		fmt.Printf("%d ", x);
+		fmt.Printf("%d ", x)
 	}
 
 	for y := uint32(0); y < e.Height; y++ {
-		fmt.Printf("%d ", y);
+		fmt.Printf("%d ", y)
 		for x := uint32(0); x < e.Width; x++ {
-			state := e.Cells[x+(y*e.Width)] & 0x01;
+			state := e.Cells[x+(y*e.Width)] & 0x01
 
 			if state != 0 {
 				fmt.Printf("\033[07m  \033[m")
@@ -109,10 +109,10 @@ func main() {
 	// Subscribe to signals for terminating the program.
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
-		
+
 	rd, err := ringbuf.NewReader(objs.LifeRingbuf)
 	if err != nil {
-		log.Fatalf("new ringbuf reader failed: %w", err)
+		log.Fatalf("new ringbuf reader failed: %v", err)
 	}
 
 	log.Println("Waiting for life events..")
@@ -122,7 +122,7 @@ func main() {
 	go func() {
 		<-stopper
 		if err := rd.Close(); err != nil {
-			log.Fatalf("closing ringbuf reader: %s", err)
+			log.Fatalf("closing ringbuf reader: %v", err)
 		}
 	}()
 
