@@ -1,7 +1,8 @@
 # Conway's Game Of Life in eBPF
 
 This is the code for the demo from John Fastabend and Liz Rice's KubeCon Paris
-talk about the evolution of the complexities that eBPF can handle.
+talk about the evolution of the complexities that eBPF can handle. By implementing 
+[Conway's Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life) in eBPF, we show that it is now Turing Complete. 
 
 * [Slides](https://speakerdeck.com/lizrice/ebpfs-abilities-and-limitations-the-truth)
 * [Video](https://www.youtube.com/watch?v=tClsqnZMN6I)
