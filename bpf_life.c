@@ -1,5 +1,5 @@
 //go:build ignore
-// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+// Copyright 2024 Isovalent, Inc. 
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
