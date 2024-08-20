@@ -1,4 +1,4 @@
-// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+// Copyright 2024 Isovalent, Inc.
 package main
 
 import (
