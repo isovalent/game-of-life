@@ -32,8 +32,18 @@ struct {
 
 #define CLOCK_MONOTONIC   1
 #define MAX_CELL_MAP_SIZE 4096 
-// #define SAMPLE_CELL_SIZE 2048
 #define SAMPLE_CELL_SIZE 4096
+
+struct user_params {
+  __u16 port;
+};
+
+struct {
+  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(max_entries, 1);
+  __type(key, __u32);
+  __type(value, struct user_params);
+} params SEC(".maps");
 
 struct cell_sample {
 	char cells[SAMPLE_CELL_SIZE];
@@ -58,8 +68,14 @@ struct {
 	__type(value, struct cellmap);
 } board SEC(".maps");
 
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 4096*8);
+} life_ringbuf SEC(".maps");
+
+// 64 x 40 fits on a reasonably-sized screen
 #define WIDTH 64
-#define HEIGHT 64 
+#define HEIGHT 40 
 #define MASK 0xfff
 
 int cell_math(unsigned int offset, int add)
@@ -140,7 +156,7 @@ int random_init(void)
 	if (!m)
 		return -1;
 
-	percent = 400;//(WIDTH * HEIGHT / 4);
+	percent = 400; //(WIDTH * HEIGHT / 4);
 
 	for (i = 0; i < percent; i++) {
 		uint32_t rand = bpf_get_prandom_u32();
@@ -246,10 +262,6 @@ int copy_cellmap(void)
 	return 0;
 }
 
-struct {
-	__uint(type, BPF_MAP_TYPE_RINGBUF);
-	__uint(max_entries, 4096*4);
-} life_ringbuf SEC(".maps");
 
 unsigned int game_round = 0;
 
@@ -335,6 +347,19 @@ int bpf_life(struct __sk_buff *skb)
 	if (started)
 		return 1;
 
+	// Get the port number to listen on (passed in as a command line parameter and stored in the params map)
+	struct user_params *up;
+	__u32 key = 0;
+	up = (struct user_params *)bpf_map_lookup_elem(&params, &key);
+	if (!up)
+	{
+		bpf_printk("No port defined");
+		return 1;
+	}		
+
+	__u16 port = up->port;
+	// bpf_printk("Port is %x %d\n", port, port);
+
 	if (bpf_skb_load_bytes(skb, 0, &ip, sizeof(struct iphdr)) < 0)
 		return 1;
 
@@ -352,16 +377,36 @@ int bpf_life(struct __sk_buff *skb)
 	if (bpf_skb_load_bytes(skb, tcp_off, &tcp, sizeof(struct tcphdr)) < 0)
 		return 1;
 
-	// Kick off Game of Life by sending a TCP packet on port 0x71fe
+	// Kick off Game of Life by sending a TCP packet on the specified port 
 	// for example, run: nc 127.0.0.1 65137
-	if (tcp.source != 0x71fe)
+	if (tcp.source != port)
 		return 1;
 
-	bpf_printk("Start life %d\n", 0);
 	started = true;
 	init_cellmap();
 	send_update();
-	bpf_printk("Start Game %d\n", 0);
+	bpf_printk("Start Game with timer events\n");
 	game();
 	return 0; 
+}
+
+SEC("perf_event")
+int bpf_life_perf_event(struct bpf_perf_event_data *ctx)
+{
+	// Only start once
+	if (!started) {
+		init_cellmap();
+		send_update();
+		bpf_printk("Start Game with perf events\n");
+		started = true;
+	}
+
+	// Return on error
+	if (copy_cellmap())
+		return 0;
+
+	next_generation();
+	bpf_printk("Update for generation %d\n", game_round++);
+	send_update();
+	return 0;
 }
