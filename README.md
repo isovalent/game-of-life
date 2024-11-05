@@ -30,6 +30,6 @@ With no parameters, this attaches the eBPF game of life program to a perf event 
 Use the `--port` parameter to specify a port for the pure eBPF version. This loads the program and attaches it to a network egress event.  For example `sudo ./life --port 65137`
 * In another terminal, send a packet on TCP port 65137 (0x71FE), for example by
   running `nc 127.0.0.1 65137`
-* This is enough to trigger the egress event (you don't need anything to be listening on that port)
+    * This is enough to trigger the egress event (you don't need anything to be listening on that port)
 
 ##
