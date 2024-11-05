@@ -17,7 +17,7 @@ The `lima.yaml` file includes apt-get commands for installing the build pre-requ
 
 ```
 limactl start --name game-of-life lima.yaml
-limactl shell gaem-of-life # you will need to run this in a second terminal window as well 
+limactl shell game-of-life 
 ```
 
 ## Building and running this demo
